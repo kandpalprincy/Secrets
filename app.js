@@ -5,7 +5,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 const app = express();
 mongoose.connect("mongodb://localhost:27017/userDB",{ useUnifiedTopology: true ,useNewUrlParser: true });
 
@@ -19,7 +20,6 @@ const userSchema = new mongoose.Schema({
      password : String
 });
 
-userSchema.plugin(encrypt,{secret : process.env.SECRET,encryptFields:["password"]});
 
 const User = mongoose.model("User",userSchema);
 
@@ -42,24 +42,30 @@ app.get("/register",function(req,res){
 app.post("/register",function(req,res){
 
     email= req.body.username;
-    password= req.body.password;
+    password=req.body.password;
 
-    const user = new User({
-      email : email,
-      password : password
-    });
+bcrypt.hash(password, saltRounds, function(err, hash) {
+  // Store hash in your password DB.
+  const user = new User({
+    email : email,
+    password : hash
+  });
 
-     user.save(function(err){
-        if(!err)
-        {
-          res.render("secrets");
-        }
-        else
-        {
-          console.log(err);
-        }
-     });
+   user.save(function(err){
+      if(!err)
+      {
+        res.render("secrets");
+      }
+      else
+      {
+        console.log(err);
+      }
+   });
 });
+
+});
+
+
 
 app.post("/login",function(req,res){
 
@@ -69,11 +75,19 @@ app.post("/login",function(req,res){
       {
         console.log(err);
       }
-      else if(user.password === req.body.password)
-           res.render("secrets");
-
+      else if(user)
+             bcrypt.compare(req.body.password,user.password, function(err, result) {
+               if(result === true)
+               {
+                  // result == true
+                  res.render("secrets");
+                }
+                else if(err)
+                {
+                  console.log(err);
+                }
+     });
     });
-
 });
 
 
